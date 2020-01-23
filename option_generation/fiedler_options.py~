@@ -1,0 +1,101 @@
+
+# TODO: Use networkX or numpy?
+import numpy as np
+import networkx as nx
+import scipy
+from numpy import linalg
+
+
+def ProposedAlgorithm(G, k):
+    no = 0
+    A = G.copy()
+
+    options = []
+    
+    while no < k:
+        v = ComputeFielderVector(nx.to_networkx_graph(A))
+        option = (np.argmax(v), np.argmin(v))
+        options.append(option)
+        B = AddOption(A, option[0], option[1])
+        A = B
+        no += 2
+
+    return A, options
+
+def Eigenoptions(G, k):
+    # Generate options for smallest k eigenvectors.
+    Gnx = nx.to_networkx_graph(G)
+    Lscipy = nx.linalg.laplacian_matrix(Gnx)
+    # print('Laplacian', Lscipy)
+
+    L = Lscipy.todense()
+    # SciPy sparse matrix to Numpy matrix
+    evalues, evectors = linalg.eig(L)
+    # print('evalues', evalues)
+    # print('evectors', evectors)
+
+    options = []
+    A = G.copy()
+
+    smallest_ind = np.argsort(evalues)
+    
+    for n in range(int(k / 2)):
+        v = evectors[:, smallest_ind[n+1]]
+        # print('max=', np.amax(v), ', arg=', np.argmax(v))
+        # print('min=', np.amin(v), ', arg=', np.argmin(v))
+        option = (np.argmax(v), np.argmin(v))
+        options.append(option)
+        B = AddOption(A, option[0], option[1])
+        A = B
+        
+    return A, options
+
+if __name__ == "__main__":
+
+    # PlotConnectivityAndCoverTime(100)
+    # exit(0)
+    #####################################
+    
+    # graph = np.matrix([ [0, 0.5, 0.5], [0.5, 0, 0.5], [1, 0, 0] ], dtype=float)
+    # graph = GenerateRandomGraph(size=5, edge_prob=0.5)
+
+    # Gnx = nx.cycle_graph(10)
+    Gnx = nx.path_graph(10)
+    
+    graph = nx.to_numpy_matrix(Gnx)
+
+    # v = ComputeFielderVector(Gnx) # numpy array of floats
+    
+    # augGraph = AddOption(graph, np.argmax(v), np.argmin(v))
+
+    proposedAugGraph, options = ProposedAlgorithm(graph, 8)
+
+    pGnx = nx.to_networkx_graph(proposedAugGraph)
+    
+    nx.draw_spectral(pGnx)
+    plt.savefig('drawing.pdf')
+
+    eigenGraph, eigenOptions = Eigenoptions(graph, 8)
+    print('eigenGraph', eigenGraph)
+    print('eigenoptinos', eigenOptions)
+    
+    # print('Graphs')
+    # print(graph)
+    # print(augGraph)
+    
+    t = ComputeCoverTime(graph)
+    print('CoverTime     ', t)
+    lb = nx.algebraic_connectivity(nx.to_networkx_graph(graph))
+    print('lambda        ', lb)
+
+    # t2 = ComputeCoverTime(augGraph)
+    # print('CoverTime Aug1', t2)
+    # lb2 = nx.algebraic_connectivity(nx.to_networkx_graph(augGraph))
+    # print('lambda        ', lb2)
+
+    t3 = ComputeCoverTime(proposedAugGraph)
+    print('CoverTime Aug ', t3)
+    lb3 = nx.algebraic_connectivity(nx.to_networkx_graph(proposedAugGraph))
+    print('lambda        ', lb3)
+
+    

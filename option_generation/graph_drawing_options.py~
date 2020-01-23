@@ -1,0 +1,12 @@
+import numpy as np
+
+def GetGraphDrawingOptions(mdp, k=1):
+    A, intToS = GetAdjacencyMatrix(mdp)
+    B, options = GetGraphDrawingOptions(A, k)
+    return B, options, intToS
+    delta = 0.1
+    beta = 5.0
+    A, intToS = GetAdjacencyMatrix(mdp)
+    rho = np.full(A.shape[0], 1.0/A.shape[0], dtype=float)
+    P = GetRandomWalk(A)
+    B, options = GraphDrawingObjective(rho, P, delta, beta)

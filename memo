@@ -1,0 +1,175 @@
+#############
+# 1/9 メモ
+#############
+
+1. 出版スケジュール
+あと２週間で投稿するためにはどのような準備をするべきか？
+
+2. Argument
+Sparse reward problemを中心に置く。とにかくどうにかして目的に到達する方法が求められる。
+そこでcover timeはこれを最小化する。Minimize the time to reach the first reward.
+DQNはMontezuma's revengeで１ポイントも獲得出来なかった。(こう主張するからにはMonteでの結果も見せたいが...)
+
+3. Experimental results
+以下の問題設定でグリッド問題においてour methodが優れていることを示す。
+3.1. Offline, full model
+3.2. Offline, incidence matrix
+3.3. Online, incidence matrix
+
+Domain: 9x9 grid, fourroom, Taxi, Racetrack (in Sutton&Barto)
+
+
+###############
+# TODOs
+###############
+1. Kyraのメールを確認し、返信。ICMLを目指すことを伝える。何をするかの指示。Writing? -> DONE
+
+2. 今のAgentの実装を確認してgrid-worldにも使えるように改良する。 -> 調べれば出来る。
+
+3. ドラフトを提出出来る形に近づけていこう。
+
+4. Pierre-Cupの修論を確認してどんなドメインで実験しているかを調べる。 -> FourroomとAtari以上のことはしてない。RaceTrackは良さそう。simple_rlに実装する！
+
+5. Onlineのポリシーをどのように実装するべきか？
+
+
+
+
+
+
+#################################################################################################
+
+##############
+# 最優先事項
+##############
+- オフラインにOptionを追加した場合の性能比較 -> 時間がかかるのでうまくパラメータを調整して短時間で終えられるようにする
+
+- Onlineにoptionを生成して追加していくエージェント
+
+- option policyの実装にintrinsic rewardを追加する。 subgoalをMDPに追加する方法。ゴリ押し実装かな？ -> DONE?
+Eigenoptionの実装だとeigenvectorの値の差だけintrinsic rewardが追加される。
+比較するならこれも実装する必要がある。
+
+
+# DONE
+- simple_rlのgymの実装がバグっている。なぜ。 -> DONE! バグではなかった。たまたま見える部分に０が並んでいただけだった。
+
+- pythonのリストがリストの中に含まれているかのチェック -> DONE! __eq__のオーバーロードなどによるものだった。ちゃんと原因を見つけられてえらいね！
+
+- 素直なDQNの実装がbreakoutでどのくらいの性能になるのかを確かめる -> DONE! gym_example.pyで実験が出来る。
+
+
+
+# TODOs
+
+### Read Machado's code
+
+1. Figure out how the options are stored by the optionDiscovery.py.
+I assume that the DL model is stored, or the policy is stored? Check that.
+If it is the same style as in the grid domains, we can just run it.
+
+-> Seems like they are just storing S->A directly. So, for undiscovered states, the policy is undefined.
+-> But if options are outside of the known region, we should not invoke the options at the first place.
+-> What about defining the initiation set of the option to be the "known region" in the sampled transition graph?
+
+2. See if the discovered options can be easily implemented in the agent.
+-> No.
+
+
+
+### Think how to implement them
+
+仕様書
+- Implementation of the Fiedleroption
+
+1. The goal state is the states with minimum/maximum eigenvalues in the Fiedler vector.
+2. The termination states are the goal state and the unknown states (states not in the sampled transition matrix).
+3. Initiation set is the known states (in the sampled transition matrix).
+
+- Implementation of the agent with options
+
+1. Agent may invoke options
+2. Option policy is applied until it hits the termination state
+3. Learn as is - the discount factor is set to 1 for the Atari domains, so don't care.
+
+
+- Implementation of Online Option Discovery Agent
+
+How many options should the agent generate?
+How often should the agent generate options?
+Should the agent generate semi-point options? How should that be implemented?
+Too many parameters to sweep.
+Feels like a hard job.
+
+
+### How to Evaluate?
+
+1. (オフラインオプション生成) まずは純粋なDQNと、kエピソードのサンプルから予めオプションを生成しておきそれを使ったDQNを比較する。
+実装が正しければ後者の方が早いはず。
+これでうまく行かなかったら実装に問題があるはず。
+
+1.1. breakoutでDQNの性能を確かめる -> インターネット環境がないと出来ないのであと回し
+1.2. breakoutでオフラインにオプションを生成して比較 (subgoal/point option?)
+
+2. (オンラインオプション生成)
+A. 純粋なDQN
+B. kエピソードごとにオプションを生成して使ったDQN
+
+仮説：Bの方が早く学習がされるのでは？
+
+
+### 意思決定
+- どのコードをベースにして実装するべきか？
+simple_rlが一番良いか？コードの中身も分かっているし、optionの実装もあるはずである。
+Davidの実装を読んで入れてあげれば喜ぶかもしれない？simple_rlの拡張にもなる。
+
+
+### 改めてTODO
+
+1. Toy domainにおいてsampleIncidenceMatrixメソッドを実装してテスト -> DONE!
+
+2. 発見したoptionをsimple_rlに組み込む方法を調べてtoyでテスト -> DONE!
+
+3. Atariでテスト
+3.1. Q-learning以外のエージェントに組み込もう。DQNに組み合わせられるか。 -> DONE!
+3.2. (rainbowやら最新の手法を扱うのは面倒で仕方がないが、やる必要はあるだろうか？)
+
+4. DQNエージェントにoptionを入れる方法を調べる -> DONE!
+
+5. Onlineにoptionを生成するエージェント
+5.1. そもそもどういうエージェントを実装するべきかを考える
+5.2. DQNエージェントにreplay bufferが実装されているか・どう実装されているかをチェックする
+
+### 目標
+12/24: 1. sampleIncidenceMatrixを実装しよう -> DONE!
+
+12/24: 2. simple_rlのoption classを使ってうまく実装する方法を考えよう -> DONE! Point optionとsubgoal option両方実装出来るようにした。subgoal optionの場合initiation setはknown region (incidence matrixに入っている状態のみ)
+
+12/24: 3. Atariに応用出来るか？ Q-learning以外のエージェントに使えるか？
+3.1. とりあえず何も考えずにgymのシンプルな問題に対して適用してみよう。 -> DONE! incidence matrixからsubgoalの発見に成功！
+3.2. option policyをディープで実装することは出来るか？ -> DONE!
+3.3. エージェント全体のポリシーをディープで実装出来るか？ -> DONE!
+
+12/25: 3.4. option policyをディープで実装する -> DONE!
+
+
+12/26: 4. 実験を効率化するための整備をする
+4.1. gridに投げるための準備をする
+
+12/26: 5. オフラインでオプションを生成して性能評価
+
+12/26: 6. オンラインでincidence matrixを更新しながらoptionを発見していくエージェントを実装する
+4.1. 
+
+
+
+### 実装の確認すべきテクニカルなところ
+
+
+### 実装のFIX
+1. Eigenoption/Fiedleroptionsの最小値最大値の状態が複数ある場合にすべての状態を含ませる (数値誤差があるのでe-4以内のものは同値として扱う？)
+2. simple_rlのActionAbstraction.py：可能なオプションが存在する場合に必ずオプションを実行するようになっている。どうしたものか。 -> SOLVED!
+3. ゴールの位置を (書き途中だったようだが忘れた)
+
+
+

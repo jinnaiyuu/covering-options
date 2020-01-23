@@ -1,0 +1,251 @@
+
+# TODO: Use networkX or numpy?
+import numpy as np
+import networkx as nx
+import scipy
+from numpy import linalg
+import matplotlib.pyplot as plt
+
+
+def HittingTime(G, t):
+    """
+    Given a graph adjacency matrix and a start and goal state,
+    return a hitting time.
+    """
+    A = G.copy()
+    A[t, :] = 0
+    A[t, t] = 1
+
+    # print('A', A)
+    A = (A.T / A.sum(axis=1)).T
+    # print('A', A)
+    B = A.copy()
+    Z = []
+    for n in range(G.shape[0] * G.shape[0] * 2):
+        Z.append(B[:, t]) # TODO: We can get the whole vector B[:, t] to speedup by n times
+        B = np.dot(B, A)
+
+    ret = np.zeros_like(Z[0])
+    for n in range(len(Z)):
+        if n == 0:
+            ret += Z[n] * (n+1)
+        else:
+            ret += (Z[n] - Z[n-1]) * (n+1)
+    if any(Z[len(Z) - 1] < 1):
+        ret += (1 - Z[len(Z)-1]) * (len(Z))
+    # print('Z', Z)
+    # print('ret', ret)
+    return ret
+
+def ComputeCoverTime(G):
+    """
+    Given a graph adjacency matrix, return a cover time.
+    We calculate the transition up to .95 probability mass.
+    """
+    N = G.shape[0]
+
+    maxHittingTime = 0
+    for i in range(N):
+        # for j in range(N):
+        #     if i == j:
+        #         continue
+        h_array = HittingTime(G, i)
+        h = np.amax(h_array)
+        if h > maxHittingTime:
+            maxHittingTime = h
+
+    return maxHittingTime
+
+def ComputeFielderVector(G):
+    """
+    Given a graph adjacency matrix, return a Fielder vector.
+    """
+    v = nx.fiedler_vector(G)
+    
+    return v
+
+def ComputeConnectivity(G):
+    lb = nx.algebraic_connectivity(nx.to_networkx_graph(G))
+    # print('lambda        ', lb)
+    return lb
+
+def AddOption(G, vi, vj):
+    # print('Options:', vi, ', ', vj)
+
+    augGraph = G.copy()
+    # print('augGraph', augGraph)
+    augGraph[vi, vj] = 1
+    augGraph[vj, vi] = 1
+    return augGraph
+
+def ProposedAlgorithm(G, k):
+    no = 0
+    A = G.copy()
+
+    options = []
+    
+    while no < k:
+        v = ComputeFielderVector(nx.to_networkx_graph(A))
+        option = (np.argmax(v), np.argmin(v))
+        options.append(option)
+        B = AddOption(A, option[0], option[1])
+        A = B
+        no += 2
+
+    return A, options
+
+def Eigenoptions(G, k):
+    # Generate options for smallest k eigenvectors.
+    Gnx = nx.to_networkx_graph(G)
+    Lscipy = nx.linalg.laplacian_matrix(Gnx)
+    # print('Laplacian', Lscipy)
+
+    L = Lscipy.todense()
+    # SciPy sparse matrix to Numpy matrix
+    evalues, evectors = linalg.eig(L)
+    # print('evalues', evalues)
+    # print('evectors', evectors)
+
+    options = []
+    A = G.copy()
+
+    smallest_ind = np.argsort(evalues)
+    
+    for n in range(int(k / 2)):
+        v = evectors[:, smallest_ind[n+1]]
+        # print('max=', np.amax(v), ', arg=', np.argmax(v))
+        # print('min=', np.amin(v), ', arg=', np.argmin(v))
+        option = (np.argmax(v), np.argmin(v))
+        options.append(option)
+        B = AddOption(A, option[0], option[1])
+        A = B
+        
+    return A, options
+
+def GenerateRandomConnectedGraph(size, edge_dense):
+    # 1. Add a node one by one to the graph connecting to a random node.
+    # 2. Add edges randomly until the density is reached.
+    G = np.zeros((size, size), dtype=int)
+    
+    for n in range(size):
+        if n == 0:
+            continue
+        # randomly pick a node in graph to connect to the new node.
+        v = np.random.randint(0, n)
+        G[n][v] = 1
+        G[v][n] = 1
+
+    m = n - 1
+    while m < size * edge_dense:
+        # Add an edge randomly
+        s = np.random.randint(0, size)
+        t = np.random.randint(0, size)
+        if G[s][t] == 0:
+            continue
+        else:
+            G[s][t] = 1
+            G[t][s] = 1
+            m += 1
+    return G
+
+
+def PlotConnectivityAndCoverTime(n_tasks, h_tasks=1000):
+    num_states = 10
+    times = []
+    lbs = []
+    hits = []
+    for n in range(n_tasks):
+        g = GenerateRandomConnectedGraph(num_states, 0.3)
+        time = ComputeCoverTime(g)
+        times.append(time)
+        
+        lb = nx.algebraic_connectivity(nx.to_networkx_graph(g))
+        lbs.append(lb)
+        
+        hs = []
+        for k in range(h_tasks):
+            s = np.random.randint(0, num_states)
+            t = np.random.randint(0, num_states)
+            h = HittingTime(g, s, t)
+            hs.append(h)
+
+        hit = sum(hs) / h_tasks
+        hits.append(hit)
+
+    # print(times)
+    # print(lbs)
+    # print(hits)
+
+    # Plot a function of f(lambda2): The bound is quite loose so better not showing.
+    # n^2 log n / lambda2
+    # x = np.linspace(0.1, 0.40, 1000)
+    # y = num_states * num_states * np.log(num_states) / x
+    # plt.plot(x, y, '-')
+    
+    plt.plot(lbs, times, '.')
+    plt.xlabel('Connectivity')
+    plt.ylabel('Cover Time')
+    plt.savefig('figures/connectivity-covertime.pdf')
+    plt.close()
+
+    # Plot a function of Random policy - cover time
+    # x = np.linspace(np.amin(times), np.amax(times), 1000)
+    # y = x
+    # plt.plot(x, y, '-')
+    
+    plt.plot(times, hits, '.')
+    plt.xlabel('Cover Time')
+    plt.ylabel('Cost of Random Policy')
+    plt.savefig('figures/covertime-hits.pdf')
+    plt.close()
+    
+
+if __name__ == "__main__":
+
+    # PlotConnectivityAndCoverTime(100)
+    # exit(0)
+    #####################################
+    
+    # graph = np.matrix([ [0, 0.5, 0.5], [0.5, 0, 0.5], [1, 0, 0] ], dtype=float)
+    # graph = GenerateRandomGraph(size=5, edge_prob=0.5)
+
+    # Gnx = nx.cycle_graph(10)
+    Gnx = nx.path_graph(10)
+    
+    graph = nx.to_numpy_matrix(Gnx)
+
+    # v = ComputeFielderVector(Gnx) # numpy array of floats
+    
+    # augGraph = AddOption(graph, np.argmax(v), np.argmin(v))
+
+    proposedAugGraph, options = ProposedAlgorithm(graph, 8)
+
+    pGnx = nx.to_networkx_graph(proposedAugGraph)
+    
+    nx.draw_spectral(pGnx)
+    plt.savefig('drawing.pdf')
+
+    eigenGraph, eigenOptions = Eigenoptions(graph, 8)
+    print('eigenGraph', eigenGraph)
+    print('eigenoptinos', eigenOptions)
+    
+    # print('Graphs')
+    # print(graph)
+    # print(augGraph)
+    
+    t = ComputeCoverTime(graph)
+    print('CoverTime     ', t)
+    lb = nx.algebraic_connectivity(nx.to_networkx_graph(graph))
+    print('lambda        ', lb)
+
+    # t2 = ComputeCoverTime(augGraph)
+    # print('CoverTime Aug1', t2)
+    # lb2 = nx.algebraic_connectivity(nx.to_networkx_graph(augGraph))
+    # print('lambda        ', lb2)
+
+    t3 = ComputeCoverTime(proposedAugGraph)
+    print('CoverTime Aug ', t3)
+    lb3 = nx.algebraic_connectivity(nx.to_networkx_graph(proposedAugGraph))
+    print('lambda        ', lb3)
+
+    

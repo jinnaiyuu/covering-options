@@ -1,0 +1,19 @@
+import random
+
+def QLearning():
+    def __init__():
+        pass
+
+    def act(self, state, actions):
+        assert(len(actions) > 0)
+        return actions[0]
+
+
+def random():
+    def __init__():
+        pass
+
+    def act(self, state, actions):
+        assert(len(actions) > 0)
+        return random.choice(actions)
+    

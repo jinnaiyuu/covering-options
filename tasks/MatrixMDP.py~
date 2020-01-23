@@ -1,0 +1,22 @@
+import numpy as np
+from options.util import neighbor
+
+def MatrixMDP():
+    def __init__(matrix):
+        self.matrix = matrix
+        self.N = int(matrix.shape[0])
+
+    def available_actions(self, s):
+        n = neighbor(self.matrix, s)
+        return n
+
+    def initial_state(self):
+        return 0
+    
+    def next_state(self, s, a):
+        return a
+
+    def is_goal(self, s):
+        return s == self.N - 1
+
+    
